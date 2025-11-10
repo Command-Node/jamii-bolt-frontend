@@ -81,9 +81,25 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-800 mb-1">Authentication Error</p>
+                  <p className="text-sm text-red-700 whitespace-pre-line">{error}</p>
+                  {error.includes('Cannot connect to backend') && (
+                    <div className="mt-3 p-3 bg-red-100 rounded text-xs text-red-800">
+                      <p className="font-semibold mb-1">Troubleshooting:</p>
+                      <ol className="list-decimal list-inside space-y-1">
+                        <li>Check if VITE_API_BASE_URL is set in Vercel environment variables</li>
+                        <li>Verify backend CORS allows your frontend URL</li>
+                        <li>Check browser console (F12) for detailed error messages</li>
+                        <li>See FIX_VERCEL_DEPLOYMENT_ERRORS.md for complete guide</li>
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

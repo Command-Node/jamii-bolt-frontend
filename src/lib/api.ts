@@ -35,6 +35,12 @@ async function apiFetch(
   const url = `${API_BASE_URL}${endpoint}`;
   const token = getAuthToken();
 
+  // Log API call for debugging (only in development)
+  if (import.meta.env.DEV) {
+    console.log('[API]', options.method || 'GET', url);
+    console.log('[API] Base URL:', API_BASE_URL);
+  }
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
@@ -44,18 +50,48 @@ async function apiFetch(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new ApiError(response.status, response.statusText, errorData);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, response.statusText, errorData);
+    }
+
+    return response;
+  } catch (error: any) {
+    // Enhanced error handling for network errors
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    // Network errors (CORS, connection refused, etc.)
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      const networkError = new ApiError(
+        0,
+        'Network Error',
+        {
+          message: 'Failed to connect to backend. Please check:',
+          details: [
+            `1. Backend URL: ${API_BASE_URL}`,
+            '2. CORS configuration allows your frontend origin',
+            '3. Backend is running and accessible',
+            `4. Network connectivity (error: ${error.message})`,
+          ],
+          originalError: error.message,
+          url,
+        }
+      );
+      throw networkError;
+    }
+
+    // Re-throw unknown errors
+    throw error;
   }
-
-  return response;
 }
 
 // API Client

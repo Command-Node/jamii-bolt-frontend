@@ -138,6 +138,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { profile: null };
     } catch (error: any) {
       console.error('Sign in error:', error);
+      
+      // Enhanced error message for network errors
+      if (error.status === 0 || error.message?.includes('Failed to connect')) {
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://jamii-backend-production.up.railway.app';
+        const frontendUrl = window.location.origin;
+        
+        const enhancedError = new Error(
+          `Cannot connect to backend API.\n\n` +
+          `Backend URL: ${apiBaseUrl}\n` +
+          `Frontend URL: ${frontendUrl}\n\n` +
+          `Possible issues:\n` +
+          `1. Backend is not running or unreachable\n` +
+          `2. CORS not configured for: ${frontendUrl}\n` +
+          `3. Environment variable VITE_API_BASE_URL not set in Vercel\n` +
+          `4. Network connectivity issue\n\n` +
+          `Check browser console (F12) for more details.`
+        );
+        enhancedError.name = 'NetworkError';
+        throw enhancedError;
+      }
+      
       throw error;
     }
   };
