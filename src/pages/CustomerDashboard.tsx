@@ -37,64 +37,45 @@ export function CustomerDashboard({ onNavigate }: CustomerDashboardProps) {
       return;
     }
 
-    // Mock data for now - will connect to backend API later
     try {
-      if (supabase) {
-        const { data: activeData } = await supabase
-          .from('jobs')
-          .select('*')
-          .eq('customer_id', user.id)
-          .in('status', ['pending', 'accepted', 'in_progress'])
-          .order('created_at', { ascending: false });
-
-        if (activeData) {
-          setActiveJobs(activeData);
-        }
-
-        const { data: completedData } = await supabase
-          .from('jobs')
-          .select('*')
-          .eq('customer_id', user.id)
-          .in('status', ['completed', 'cancelled'])
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (completedData) {
-          setCompletedJobs(completedData);
-          const spent = completedData
-            .filter((job: any) => job.status === 'completed' && job.price_agreed)
-            .reduce((sum: number, job: any) => sum + (job.price_agreed || 0), 0);
-          setTotalSpent(spent);
-        }
-
-        const { data: helpersData } = await supabase
-          .from('helper_profiles')
-          .select('*')
-          .gte('rating_average', 4.5)
-          .gte('jobs_completed', 5)
-          .order('rating_average', { ascending: false })
-          .limit(4);
-
-        if (helpersData) {
-          setRecommendedHelpers(helpersData);
-        }
-      } else {
-        // Mock data when supabase not available
-        setActiveJobs([]);
-        setCompletedJobs([]);
-        setTotalSpent(0);
-        setRecommendedHelpers([]);
-      }
+      const api = (await import('../lib/api')).default;
+      
+      // Fetch user's jobs
+      const allJobs = await api.getJobs({ customer_id: user.id });
+      
+      // Separate active and completed jobs
+      const active = allJobs.filter((job: any) => 
+        ['pending', 'accepted', 'in_progress'].includes(job.status)
+      );
+      const completed = allJobs
+        .filter((job: any) => ['completed', 'cancelled'].includes(job.status))
+        .slice(0, 10);
+      
+      setActiveJobs(active);
+      setCompletedJobs(completed);
+      
+      // Calculate total spent
+      const spent = completed
+        .filter((job: any) => job.status === 'completed' && job.price_agreed)
+        .reduce((sum: number, job: any) => sum + (job.price_agreed || 0), 0);
+      setTotalSpent(spent);
+      
+      // Fetch recommended helpers
+      const helpers = await api.getHelpers();
+      const recommended = helpers
+        .filter((h: any) => (h.rating_average || 0) >= 4.5 && (h.jobs_completed || 0) >= 5)
+        .sort((a: any, b: any) => (b.rating_average || 0) - (a.rating_average || 0))
+        .slice(0, 4);
+      setRecommendedHelpers(recommended);
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      // Use empty data on error
       setActiveJobs([]);
       setCompletedJobs([]);
       setTotalSpent(0);
       setRecommendedHelpers([]);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const getStatusBadge = (status: string) => {

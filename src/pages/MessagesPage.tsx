@@ -27,34 +27,30 @@ export function MessagesPage() {
   }, [user]);
 
   useEffect(() => {
-    if (selectedConversation && supabase) {
-      fetchMessages(selectedConversation.job_id);
-
-      const channel = supabase
-        .channel(`messages:${selectedConversation.job_id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `job_id=eq.${selectedConversation.job_id}`,
-          },
-          (payload: any) => {
-            setMessages((prev) => [...prev, payload.new]);
-          }
-        )
-        .subscribe();
-
-      return () => {
-        if (supabase) {
-          supabase.removeChannel(channel);
-        }
-      };
+    if (selectedConversation) {
+      fetchMessages(selectedConversation.job_id || selectedConversation.id);
     }
   }, [selectedConversation]);
 
   const fetchConversations = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const api = (await import('../lib/api')).default;
+      const conversationsList = await api.getConversations();
+      setConversations(conversationsList);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMessagesOld = async () => {
     if (!user) {
       setLoading(false);
       return;
@@ -135,29 +131,18 @@ export function MessagesPage() {
     setLoading(false);
   };
 
-  const fetchMessages = async (jobId: string) => {
-    if (!supabase) {
-      setMessages([]);
-      return;
-    }
-
+  const fetchMessages = async (conversationId: string) => {
     try {
-      const { data } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('job_id', jobId)
-        .order('created_at', { ascending: true });
-
-      if (data) {
-        setMessages(data);
-
-        await supabase
-          .from('messages')
-          .update({ read: true, read_at: new Date().toISOString() })
-          .eq('job_id', jobId)
-          .eq('recipient_id', user?.id)
-          .eq('read', false);
-      }
+      const api = (await import('../lib/api')).default;
+      const messagesList = await api.getConversationMessages(conversationId);
+      setMessages(messagesList);
+      
+      // Mark messages as read
+      messagesList.forEach((msg: any) => {
+        if (msg.recipient_id === user?.id && !msg.read) {
+          api.markMessageRead(msg.id).catch(console.error);
+        }
+      });
     } catch (error) {
       console.error('Error fetching messages:', error);
       setMessages([]);
@@ -166,33 +151,28 @@ export function MessagesPage() {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedConversation || !user || !supabase) return;
+    if (!newMessage.trim() || !selectedConversation || !user) return;
 
     setSending(true);
 
     try {
-      const { error } = await supabase
-        .from('messages')
-        .insert([
-          {
-            job_id: selectedConversation.job_id,
-            sender_id: user.id,
-            recipient_id: selectedConversation.other_user_id,
-            content: newMessage.trim(),
-          },
-        ]);
-
-      if (error) {
-        console.error('Error sending message:', error);
-      } else {
-        setNewMessage('');
-        await fetchConversations();
+      const api = (await import('../lib/api')).default;
+      await api.sendMessage({
+        recipient_id: selectedConversation.other_user_id || selectedConversation.recipient_id,
+        job_id: selectedConversation.job_id,
+        content: newMessage.trim(),
+      });
+      
+      setNewMessage('');
+      await fetchConversations();
+      if (selectedConversation) {
+        await fetchMessages(selectedConversation.job_id || selectedConversation.id);
       }
     } catch (error) {
       console.error('Error sending message:', error);
+    } finally {
+      setSending(false);
     }
-
-    setSending(false);
   };
 
   if (loading) {

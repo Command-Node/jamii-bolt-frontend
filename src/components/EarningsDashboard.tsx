@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, Clock, CheckCircle, AlertCircle, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 
 type EarningsSummary = {
   total_earnings: number;
@@ -39,35 +38,51 @@ export function EarningsDashboard() {
   const fetchEarnings = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('earnings_summary')
-        .select('*')
-        .eq('helper_id', user?.id)
-        .maybeSingle();
+      const api = (await import('../lib/api')).default;
+      const transactions = await api.getTransactions();
+      
+      // Filter helper's transactions
+      const helperTransactions = transactions.filter((t: any) => t.helper_id === user?.id);
+      
+      // Calculate earnings
+      const total = helperTransactions
+        .filter((t: any) => t.status === 'completed')
+        .reduce((sum: number, t: any) => sum + (parseFloat(t.amount || 0)), 0);
+      
+      const net = helperTransactions
+        .filter((t: any) => t.status === 'completed')
+        .reduce((sum: number, t: any) => sum + (parseFloat(t.helper_payout || 0)), 0);
+      
+      const pending = helperTransactions
+        .filter((t: any) => t.status === 'pending')
+        .reduce((sum: number, t: any) => sum + (parseFloat(t.helper_payout || 0)), 0);
+      
+      const available = helperTransactions
+        .filter((t: any) => t.status === 'completed' && !t.refunded_at)
+        .reduce((sum: number, t: any) => sum + (parseFloat(t.helper_payout || 0)), 0);
+      
+      const lastPayout = helperTransactions
+        .filter((t: any) => t.status === 'completed')
+        .sort((a: any, b: any) => new Date(b.completed_at || 0).getTime() - new Date(a.completed_at || 0).getTime())[0]?.completed_at || null;
 
-      if (error) throw error;
-
-      if (data) {
-        setEarnings({
-          total_earnings: parseFloat(data.total_earnings) || 0,
-          net_earnings: parseFloat(data.net_earnings) || 0,
-          pending_balance: parseFloat(data.pending_balance) || 0,
-          available_balance: parseFloat(data.available_balance) || 0,
-          total_transactions: data.total_transactions || 0,
-          last_payout_at: data.last_payout_at,
-        });
-      } else {
-        setEarnings({
-          total_earnings: 0,
-          net_earnings: 0,
-          pending_balance: 0,
-          available_balance: 0,
-          total_transactions: 0,
-          last_payout_at: null,
-        });
-      }
+      setEarnings({
+        total_earnings: total,
+        net_earnings: net,
+        pending_balance: pending,
+        available_balance: available,
+        total_transactions: helperTransactions.length,
+        last_payout_at: lastPayout,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch earnings');
+      setEarnings({
+        total_earnings: 0,
+        net_earnings: 0,
+        pending_balance: 0,
+        available_balance: 0,
+        total_transactions: 0,
+        last_payout_at: null,
+      });
     } finally {
       setLoading(false);
     }
@@ -75,36 +90,28 @@ export function EarningsDashboard() {
 
   const fetchRecentTransactions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select(`
-          id,
-          amount,
-          helper_payout,
-          status,
-          created_at,
-          customer_id,
-          profiles:customer_id (full_name)
-        `)
-        .eq('helper_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-
-      if (data) {
-        setRecentTransactions(data.map(t => ({
+      const api = (await import('../lib/api')).default;
+      const transactions = await api.getTransactions();
+      
+      // Filter helper's transactions and get recent 5
+      const recent = transactions
+        .filter((t: any) => t.helper_id === user?.id)
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5)
+        .map((t: any) => ({
           id: t.id,
-          amount: parseFloat(t.amount),
-          helper_payout: parseFloat(t.helper_payout),
+          amount: typeof t.amount === 'number' ? t.amount : parseFloat(t.amount || 0),
+          helper_payout: typeof t.helper_payout === 'number' ? t.helper_payout : parseFloat(t.helper_payout || 0),
           status: t.status,
           created_at: t.created_at,
           customer_id: t.customer_id,
-          customer_name: (t.profiles as any)?.full_name || 'Unknown',
-        })));
-      }
+          customer_name: t.customer_name || t.customer?.name || 'Unknown',
+        }));
+      
+      setRecentTransactions(recent);
     } catch (err) {
-      console.error('Failed to fetch transactions:', err);
+      console.error('Failed to fetch recent transactions:', err);
+      setRecentTransactions([]);
     }
   };
 

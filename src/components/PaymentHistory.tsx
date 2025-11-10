@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Download, CheckCircle, Clock, XCircle, AlertCircle, DollarSign } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 
 type Transaction = {
   id: string;
@@ -42,47 +41,38 @@ export function PaymentHistory({ viewMode }: PaymentHistoryProps) {
   const fetchTransactions = async () => {
     try {
       setLoading(true);
+      const api = (await import('../lib/api')).default;
+      const transactionsList = await api.getTransactions();
+      
+      // Filter by view mode
+      const filtered = transactionsList.filter((t: any) => {
+        if (viewMode === 'customer') {
+          return t.customer_id === user?.id;
+        } else {
+          return t.helper_id === user?.id;
+        }
+      });
 
-      let query = supabase
-        .from('transactions')
-        .select(`
-          *,
-          customer:profiles!customer_id(full_name),
-          helper:profiles!helper_id(full_name)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (viewMode === 'customer') {
-        query = query.eq('customer_id', user?.id);
-      } else {
-        query = query.eq('helper_id', user?.id);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      if (data) {
-        setTransactions(data.map(t => ({
-          id: t.id,
-          customer_id: t.customer_id,
-          helper_id: t.helper_id,
-          booking_id: t.booking_id,
-          amount: parseFloat(t.amount),
-          platform_fee: parseFloat(t.platform_fee),
-          helper_payout: parseFloat(t.helper_payout),
-          stripe_payment_intent_id: t.stripe_payment_intent_id,
-          status: t.status,
-          payment_method: t.payment_method,
-          created_at: t.created_at,
-          completed_at: t.completed_at,
-          refunded_at: t.refunded_at,
-          customer_name: (t.customer as any)?.full_name || 'Unknown',
-          helper_name: (t.helper as any)?.full_name || 'Unknown',
-        })));
-      }
+      setTransactions(filtered.map((t: any) => ({
+        id: t.id,
+        customer_id: t.customer_id,
+        helper_id: t.helper_id,
+        booking_id: t.booking_id || null,
+        amount: typeof t.amount === 'number' ? t.amount : parseFloat(t.amount || 0),
+        platform_fee: typeof t.platform_fee === 'number' ? t.platform_fee : parseFloat(t.platform_fee || 0),
+        helper_payout: typeof t.helper_payout === 'number' ? t.helper_payout : parseFloat(t.helper_payout || 0),
+        stripe_payment_intent_id: t.stripe_payment_intent_id || null,
+        status: t.status,
+        payment_method: t.payment_method || null,
+        created_at: t.created_at,
+        completed_at: t.completed_at || null,
+        refunded_at: t.refunded_at || null,
+        customer_name: t.customer_name || t.customer?.name || 'Unknown',
+        helper_name: t.helper_name || t.helper?.name || 'Unknown',
+      })));
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
+      setTransactions([]);
     } finally {
       setLoading(false);
     }

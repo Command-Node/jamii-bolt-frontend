@@ -116,29 +116,28 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
 
   const fetchServices = async () => {
     try {
-      // Try Supabase first (if available)
-      if (supabase) {
-        const { data, error } = await supabase
-          .from('services')
-          .select('*')
-          .eq('is_active', true)
-          .order('created_at');
-
-        if (error) {
-          console.error('Error fetching services:', error);
-        } else {
-          setServices(data || []);
-          setLoading(false);
-          return;
-        }
-      }
-    } catch (err) {
-      console.log('Supabase not available, using empty services list');
+      const api = (await import('../lib/api')).default;
+      const jobs = await api.getJobs({ status: 'open', limit: 6 });
+      
+      // Map jobs to services format for display
+      const mappedServices: Service[] = jobs.map((job: any) => ({
+        id: job.id,
+        title: job.title || job.description?.substring(0, 50) || 'Service',
+        description: job.description || '',
+        price_cents: job.price_agreed || job.price_min || 0,
+        category: job.category || 'other',
+        icon: job.category || 'home',
+        is_active: job.status === 'open',
+        created_at: job.created_at || new Date().toISOString(),
+      }));
+      
+      setServices(mappedServices);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      setServices([]);
+    } finally {
+      setLoading(false);
     }
-    
-    // Fallback: empty services list (will show placeholder content)
-    setServices([]);
-    setLoading(false);
   };
 
   const formatPrice = (cents: number) => {

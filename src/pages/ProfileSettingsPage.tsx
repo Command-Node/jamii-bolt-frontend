@@ -116,25 +116,16 @@ export function ProfileSettingsPage({ onNavigate }: ProfileSettingsPageProps) {
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) {
-      setMessage({ type: 'error', text: 'Database not available' });
-      return;
-    }
     setLoading(true);
     setMessage(null);
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: formData.full_name,
-          phone: formData.phone,
-          address: formData.address,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user?.id);
-
-      if (error) throw error;
+      const api = (await import('../lib/api')).default;
+      await api.updateUserProfile({
+        name: formData.full_name,
+        phone: formData.phone,
+        address: formData.address,
+      });
 
       await refreshProfile();
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
@@ -184,18 +175,13 @@ export function ProfileSettingsPage({ onNavigate }: ProfileSettingsPageProps) {
     setMessage(null);
 
     try {
-      const { error } = await supabase
-        .from('helper_profiles')
-        .update({
-          bio: helperFormData.bio,
-          years_experience: helperFormData.years_experience,
-          response_time_hours: helperFormData.response_time_hours,
-          availability_status: helperFormData.availability_status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user?.id);
-
-      if (error) throw error;
+      const api = (await import('../lib/api')).default;
+      await api.updateUserProfile({
+        bio: helperFormData.bio,
+        years_experience: helperFormData.years_experience,
+        response_time_hours: helperFormData.response_time_hours,
+        availability_status: helperFormData.availability_status,
+      });
 
       await fetchHelperData();
       setMessage({ type: 'success', text: 'Helper profile updated successfully!' });

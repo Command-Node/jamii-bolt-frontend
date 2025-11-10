@@ -84,128 +84,82 @@ export function MarketplacePage({ onNavigate }: MarketplacePageProps) {
   const fetchData = async () => {
     setLoading(true);
 
-    const { data: servicesData } = await supabase
-      .from('services')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at');
+    try {
+      const api = (await import('../lib/api')).default;
+      
+      // Fetch jobs (services)
+      const jobs = await api.getJobs({ status: 'open' });
+      const mappedServices: Service[] = jobs.map((job: any) => ({
+        id: job.id,
+        title: job.title || job.description?.substring(0, 50) || 'Service',
+        description: job.description || '',
+        price_cents: job.price_agreed || job.price_min || 0,
+        category: job.category || 'other',
+        icon: job.category || 'home',
+        is_active: job.status === 'open',
+        created_at: job.created_at || new Date().toISOString(),
+      }));
+      setServices(mappedServices);
 
-    if (servicesData) {
-      setServices(servicesData);
-    }
+      // Fetch helpers
+      const helpersList = await api.getHelpers();
+      
+      // Filter helpers based on availability
+      let filteredHelpers = helpersList;
+      
+      if (availabilityFilter === 'available_now') {
+        filteredHelpers = filteredHelpers.filter((h: any) => h.availability_status === 'available_now');
+      } else if (availabilityFilter === 'available_today') {
+        filteredHelpers = filteredHelpers.filter((h: any) => 
+          ['available_now', 'available_today'].includes(h.availability_status)
+        );
+      }
 
-    let query = supabase
-      .from('profiles')
-      .select(`
-        id,
-        full_name,
-        avatar_url,
-        helper_profiles!inner (
-          bio,
-          current_radius_miles,
-          jobs_completed,
-          availability_status,
-          rating_average,
-          rating_count
-        )
-      `)
-      .eq('role', 'helper')
-      .eq('id_verified', true);
-
-    if (availabilityFilter === 'available_now') {
-      query = query.eq('helper_profiles.availability_status', 'available_now');
-    } else if (availabilityFilter === 'available_today') {
-      query = query.in('helper_profiles.availability_status', ['available_now', 'available_today']);
-    }
-
-    const { data: helpersData, error } = await query;
-
-    if (error) {
-      console.error('Error fetching helpers:', error);
-      setLoading(false);
-      return;
-    }
-
-    if (helpersData) {
-      const helpersWithDetails = await Promise.all(
-        helpersData.map(async (helper: any) => {
-          const { data: servicesData } = await supabase
-            .from('helper_services')
-            .select(`
-              service_id,
-              custom_price_min,
-              custom_price_max,
-              services (
-                name,
-                icon
-              )
-            `)
-            .eq('helper_id', helper.id)
-            .eq('active', true);
-
-          const { data: badgesData } = await supabase
-            .from('helper_badges')
-            .select(`
-              badges (
-                icon,
-                name
-              )
-            `)
-            .eq('helper_id', helper.id)
-            .eq('verified', true);
-
-          return {
-            id: helper.id,
-            full_name: helper.full_name,
-            avatar_url: helper.avatar_url,
-            bio: helper.helper_profiles.bio,
-            current_radius_miles: helper.helper_profiles.current_radius_miles,
-            jobs_completed: helper.helper_profiles.jobs_completed,
-            availability_status: helper.helper_profiles.availability_status,
-            rating_average: helper.helper_profiles.rating_average,
-            rating_count: helper.helper_profiles.rating_count,
-            services: servicesData?.map((s: any) => ({
-              service_id: s.service_id,
-              service_name: s.services.name,
-              service_icon: s.services.icon,
-              custom_price_min: s.custom_price_min,
-              custom_price_max: s.custom_price_max,
-            })) || [],
-            badges: badgesData?.map((b: any) => ({
-              badge_icon: b.badges.icon,
-              badge_name: b.badges.name,
-            })) || [],
-          };
-        })
-      );
-
-      let filteredHelpers = helpersWithDetails;
-
+      // Filter by selected service
       if (selectedService) {
-        filteredHelpers = filteredHelpers.filter((helper) =>
-          helper.services.some((s) => s.service_id === selectedService)
+        filteredHelpers = filteredHelpers.filter((helper: any) =>
+          helper.services?.some((s: any) => s.service_id === selectedService)
         );
       }
 
+      // Filter by search query
       if (searchQuery) {
-        filteredHelpers = filteredHelpers.filter((helper) =>
-          helper.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          helper.services.some((s) => s.service_name.toLowerCase().includes(searchQuery.toLowerCase()))
+        filteredHelpers = filteredHelpers.filter((helper: any) =>
+          helper.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          helper.bio?.toLowerCase().includes(searchQuery.toLowerCase())
         );
       }
 
-      filteredHelpers.sort((a, b) => {
+      // Sort helpers
+      filteredHelpers.sort((a: any, b: any) => {
         if (a.availability_status === 'available_now' && b.availability_status !== 'available_now') return -1;
         if (a.availability_status !== 'available_now' && b.availability_status === 'available_now') return 1;
-        if (a.availability_status === 'available_today' && b.availability_status !== 'available_today' && b.availability_status !== 'available_now') return -1;
-        if (a.availability_status !== 'available_today' && b.availability_status === 'available_today') return 1;
-        return b.rating_average - a.rating_average;
+        return (b.rating_average || 0) - (a.rating_average || 0);
       });
 
-      setHelpers(filteredHelpers);
-    }
+      // Map to Helper type
+      const mappedHelpers: Helper[] = filteredHelpers.map((h: any) => ({
+        id: h.id,
+        full_name: h.full_name || h.name || 'Helper',
+        avatar_url: h.avatar_url || null,
+        bio: h.bio || null,
+        current_radius_miles: h.current_radius_miles || 5,
+        jobs_completed: h.jobs_completed || 0,
+        availability_status: h.availability_status || 'offline',
+        rating_average: h.rating_average || 0,
+        rating_count: h.rating_count || 0,
+        services: h.services || [],
+        badges: h.badges || [],
+      }));
 
-    setLoading(false);
+      setHelpers(mappedHelpers);
+    } catch (error) {
+      console.error('Error fetching marketplace data:', error);
+      setServices([]);
+      setHelpers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getAvailabilityBadge = (status: string) => {

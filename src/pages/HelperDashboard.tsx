@@ -45,74 +45,52 @@ export function HelperDashboard({ onNavigate }: HelperDashboardProps) {
       return;
     }
 
-    // Mock data for now - will connect to backend API later
     try {
-      if (supabase) {
-        const { data: helperData } = await supabase
-          .from('helper_profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (helperData) {
-          setHelperProfile(helperData);
-        }
-
-        const { data: helperServicesData } = await supabase
-          .from('helper_services')
-          .select('*')
-          .eq('helper_id', user.id);
-
-        if (helperServicesData) {
-          setHelperServices(helperServicesData);
-        }
-
-        const { data: activeJobsData } = await supabase
-          .from('jobs')
-          .select('*')
-          .eq('helper_id', user.id)
-          .in('status', ['accepted', 'in_progress'])
-          .order('created_at', { ascending: false });
-
-        if (activeJobsData) {
-          setActiveJobs(activeJobsData);
-        }
-
-        const now = new Date();
-        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-        const { data: earningsData } = await supabase
-          .from('jobs')
-          .select('price_agreed')
-          .eq('helper_id', user.id)
-          .eq('status', 'completed')
-          .gte('completed_at', firstDayOfMonth.toISOString());
-
-        if (earningsData) {
-          const total = earningsData.reduce((sum: number, job: any) => sum + (job.price_agreed || 0), 0);
-          setMonthlyEarnings(Math.floor(total * 0.9));
-        }
-      } else {
-        // Mock data when supabase not available
-        setHelperProfile(null);
-        setHelperServices([]);
-        setHotJobs([]);
-        setActiveJobs([]);
-        setMonthlyEarnings(0);
-        setRecentActivity([]);
+      const api = (await import('../lib/api')).default;
+      
+      // Fetch user profile (helper profile)
+      const userProfile = await api.getUserProfile();
+      if (userProfile && userProfile.role === 'helper') {
+        setHelperProfile(userProfile);
       }
+
+      // Fetch available jobs (hot jobs)
+      const availableJobs = await api.getJobs({ status: 'open' });
+      setHotJobs(availableJobs.slice(0, 5));
+
+      // Fetch helper's active jobs
+      const helperJobs = await api.getJobs({ helper_id: user.id });
+      const active = helperJobs.filter((job: any) => 
+        ['accepted', 'in_progress'].includes(job.status)
+      );
+      setActiveJobs(active);
+
+      // Calculate monthly earnings
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const completedJobs = helperJobs.filter((job: any) => 
+        job.status === 'completed' && 
+        job.completed_at && 
+        new Date(job.completed_at) >= firstDayOfMonth
+      );
+      const total = completedJobs.reduce((sum: number, job: any) => 
+        sum + (job.price_agreed || 0), 0
+      );
+      setMonthlyEarnings(Math.floor(total * 0.85)); // 85% after platform fee
+
+      // Set recent activity (completed jobs)
+      setRecentActivity(completedJobs.slice(0, 5));
     } catch (error) {
-      console.error('Error fetching data:', error);
-      // Use empty data on error
+      console.error('Error fetching helper data:', error);
       setHelperProfile(null);
       setHelperServices([]);
       setHotJobs([]);
       setActiveJobs([]);
-      setMonthlyEarnings(0);
       setRecentActivity([]);
+      setMonthlyEarnings(0);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const updateAvailabilityStatus = async (status: 'available_now' | 'available_today' | 'by_appointment' | 'offline') => {
