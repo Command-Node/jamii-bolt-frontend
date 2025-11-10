@@ -47,56 +47,99 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [canSwitchToHelper, setCanSwitchToHelper] = useState(false);
 
   useEffect(() => {
-    // Check for stored user session
+    // Check for stored user session and verify with backend
     const storedUser = localStorage.getItem('jamii_user');
     const storedToken = localStorage.getItem('jamii_token');
     
-    if (storedUser && storedToken) {
-      try {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
-        setProfile(userData);
-        setActiveRoleState(userData.role || null);
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-      }
+    if (storedToken) {
+      // Verify token with backend
+      const verifyUser = async () => {
+        try {
+          const api = (await import('../lib/api')).default;
+          const userData = await api.getCurrentUser();
+          
+          if (userData) {
+            const user: User = {
+              id: userData.id,
+              email: userData.email,
+              full_name: userData.name,
+              role: userData.role,
+            };
+            
+            setUser(user);
+            setProfile(user);
+            setActiveRoleState(user.role || null);
+            localStorage.setItem('jamii_user', JSON.stringify(user));
+          }
+        } catch (error) {
+          // Token invalid, clear storage
+          console.error('Token verification failed:', error);
+          localStorage.removeItem('jamii_token');
+          localStorage.removeItem('jamii_user');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      verifyUser();
+    } else {
+      setLoading(false);
     }
-    
-    setLoading(false);
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string, role: 'customer' | 'helper') => {
-    // Mock implementation - will connect to backend API
-    const newUser: User = {
-      id: `user_${Date.now()}`,
-      email,
-      full_name: fullName,
-      role,
-    };
-    
-    setUser(newUser);
-    setProfile(newUser);
-    setActiveRoleState(role);
-    localStorage.setItem('jamii_user', JSON.stringify(newUser));
-    localStorage.setItem('jamii_token', 'mock_token_' + Date.now());
+    try {
+      const api = (await import('../lib/api')).default;
+      const data = await api.register({
+        email,
+        password,
+        name: fullName,
+        role,
+      });
+      
+      if (data.user) {
+        const newUser: User = {
+          id: data.user.id,
+          email: data.user.email,
+          full_name: data.user.name || fullName,
+          role: data.user.role || role,
+        };
+        
+        setUser(newUser);
+        setProfile(newUser);
+        setActiveRoleState(role);
+      }
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      throw error;
+    }
   };
 
   const signIn = async (email: string, password: string): Promise<{ profile: Profile | null }> => {
-    // Mock implementation - will connect to backend API
-    const mockUser: User = {
-      id: `user_${Date.now()}`,
-      email,
-      full_name: email.split('@')[0],
-      role: 'customer',
-    };
-    
-    setUser(mockUser);
-    setProfile(mockUser);
-    setActiveRoleState('customer');
-    localStorage.setItem('jamii_user', JSON.stringify(mockUser));
-    localStorage.setItem('jamii_token', 'mock_token_' + Date.now());
-    
-    return { profile: mockUser };
+    try {
+      const api = (await import('../lib/api')).default;
+      const data = await api.login(email, password);
+      
+      if (data.user) {
+        const user: User = {
+          id: data.user.id,
+          email: data.user.email,
+          full_name: data.user.name || email.split('@')[0],
+          role: data.user.role || 'customer',
+        };
+        
+        setUser(user);
+        setProfile(user);
+        setActiveRoleState(user.role || 'customer');
+        
+        return { profile: user };
+      }
+      
+      return { profile: null };
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
   };
 
   const signInWithGoogle = async (role: 'customer' | 'helper') => {
@@ -110,17 +153,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    setUser(null);
-    setProfile(null);
-    setActiveRoleState(null);
-    localStorage.removeItem('jamii_user');
-    localStorage.removeItem('jamii_token');
+    try {
+      const api = (await import('../lib/api')).default;
+      await api.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      setProfile(null);
+      setActiveRoleState(null);
+      localStorage.removeItem('jamii_user');
+      localStorage.removeItem('jamii_token');
+    }
   };
 
   const refreshProfile = async () => {
-    // Mock implementation - will connect to backend API
-    if (user) {
-      // Refresh profile data
+    try {
+      const api = (await import('../lib/api')).default;
+      const userData = await api.getCurrentUser();
+      
+      if (userData) {
+        const updatedUser: User = {
+          id: userData.id,
+          email: userData.email,
+          full_name: userData.name,
+          role: userData.role,
+        };
+        
+        setUser(updatedUser);
+        setProfile(updatedUser);
+        setActiveRoleState(updatedUser.role || null);
+        localStorage.setItem('jamii_user', JSON.stringify(updatedUser));
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
     }
   };
 
