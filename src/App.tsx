@@ -5,6 +5,7 @@
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
+import { AuthCallback } from './pages/AuthCallback';
 import { MarketplacePage } from './pages/MarketplacePage';
 import { CustomerDashboard } from './pages/CustomerDashboard';
 import { HelperDashboard } from './pages/HelperDashboard';
@@ -294,6 +295,7 @@ const App = () => (
       <Routes>
         <Route path="/" element={<LandingPageWrapper />} />
         <Route path="/auth" element={<AuthPageWrapper />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/marketplace" element={<MarketplacePageWrapper />} />
         <Route path="/dashboard/customer" element={<CustomerDashboardWrapper />} />
         <Route path="/dashboard/helper" element={<HelperDashboardWrapper />} />

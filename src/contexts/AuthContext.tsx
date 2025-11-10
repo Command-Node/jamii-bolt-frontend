@@ -164,13 +164,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async (role: 'customer' | 'helper') => {
-    // Mock implementation - will connect to backend API
-    console.log('Google sign in (mock)', role);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+        import.meta.env.VITE_BACKEND_URL || 
+        'https://jamii-backend-production.up.railway.app';
+      
+      // Build redirect URI for callback
+      const frontendUrl = window.location.origin;
+      const redirectUri = `${frontendUrl}/auth/callback`;
+      
+      // Redirect to backend OAuth authorize endpoint
+      // Backend will handle the Google OAuth flow and redirect back to our callback
+      const oauthUrl = `${API_BASE_URL}/api/v1/auth/oauth/google/authorize?redirect_uri=${encodeURIComponent(redirectUri)}&role=${role}`;
+      
+      // Store the role in sessionStorage so we can use it after OAuth callback
+      sessionStorage.setItem('oauth_role', role);
+      
+      // Redirect to backend OAuth endpoint
+      window.location.href = oauthUrl;
+    } catch (error: any) {
+      console.error('Google OAuth error:', error);
+      throw new Error('Failed to initiate Google sign-in. Please try again.');
+    }
   };
 
   const signInWithApple = async (role: 'customer' | 'helper') => {
-    // Mock implementation - will connect to backend API
-    console.log('Apple sign in (mock)', role);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+        import.meta.env.VITE_BACKEND_URL || 
+        'https://jamii-backend-production.up.railway.app';
+      
+      // Build redirect URI for callback
+      const frontendUrl = window.location.origin;
+      const redirectUri = `${frontendUrl}/auth/callback`;
+      
+      // Redirect to backend OAuth authorize endpoint
+      const oauthUrl = `${API_BASE_URL}/api/v1/auth/oauth/apple/authorize?redirect_uri=${encodeURIComponent(redirectUri)}&role=${role}`;
+      
+      // Store the role in sessionStorage so we can use it after OAuth callback
+      sessionStorage.setItem('oauth_role', role);
+      
+      // Redirect to backend OAuth endpoint
+      window.location.href = oauthUrl;
+    } catch (error: any) {
+      console.error('Apple OAuth error:', error);
+      throw new Error('Failed to initiate Apple sign-in. Please try again.');
+    }
   };
 
   const signOut = async () => {
