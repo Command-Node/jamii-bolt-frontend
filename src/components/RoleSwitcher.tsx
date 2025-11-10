@@ -24,7 +24,7 @@ export function RoleSwitcher({ onNavigate }: RoleSwitcherProps) {
             : 'text-[#6B7280] hover:text-[#1F2937] hover:bg-white/50'
         }`}
       >
-        <Search className="w-5 h-5" />
+        <span className="text-lg">Q</span>
         <span className="whitespace-nowrap">NEIGHBOR MODE</span>
       </button>
       <button
@@ -35,7 +35,7 @@ export function RoleSwitcher({ onNavigate }: RoleSwitcherProps) {
             : 'text-[#6B7280] hover:text-[#1F2937] hover:bg-white/50'
         }`}
       >
-        <DollarSign className="w-5 h-5" />
+        <span className="text-lg">$</span>
         <span className="whitespace-nowrap">HELPER MODE</span>
       </button>
     </div>

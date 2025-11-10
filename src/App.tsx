@@ -2,7 +2,7 @@
  * JAMII BOLT Frontend - Clean App
  * Only BOLT pages, no Lovable dependencies
  */
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
 import { MarketplacePage } from './pages/MarketplacePage';
@@ -14,6 +14,7 @@ import { PaymentsPage } from './pages/PaymentsPage';
 import { JamiiShopPage } from './pages/JamiiShopPage';
 import { PublicProfilePage } from './pages/PublicProfilePage';
 import { AuthProvider } from './contexts/AuthContext';
+import { Layout } from './components/Layout';
 
 // Wrapper components to adapt BOLT pages to React Router
 const LandingPageWrapper = () => {
@@ -53,8 +54,12 @@ const LandingPageWrapper = () => {
 
 const MarketplacePageWrapper = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const handleNavigate = (page: string) => {
     switch (page) {
+      case 'landing':
+        navigate('/');
+        break;
       case 'auth':
         navigate('/auth');
         break;
@@ -77,13 +82,21 @@ const MarketplacePageWrapper = () => {
         console.warn(`Unknown navigation: ${page}`);
     }
   };
-  return <MarketplacePage onNavigate={handleNavigate} />;
+  return (
+    <Layout onNavigate={handleNavigate} currentPage={location.pathname}>
+      <MarketplacePage onNavigate={handleNavigate} />
+    </Layout>
+  );
 };
 
 const CustomerDashboardWrapper = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const handleNavigate = (page: string) => {
     switch (page) {
+      case 'landing':
+        navigate('/');
+        break;
       case 'marketplace':
         navigate('/marketplace');
         break;
@@ -96,17 +109,31 @@ const CustomerDashboardWrapper = () => {
       case 'payments':
         navigate('/payments');
         break;
+      case 'customer-dashboard':
+        navigate('/dashboard/customer');
+        break;
+      case 'helper-dashboard':
+        navigate('/dashboard/helper');
+        break;
       default:
         console.warn(`Unknown navigation: ${page}`);
     }
   };
-  return <CustomerDashboard onNavigate={handleNavigate} />;
+  return (
+    <Layout onNavigate={handleNavigate} currentPage={location.pathname}>
+      <CustomerDashboard onNavigate={handleNavigate} />
+    </Layout>
+  );
 };
 
 const HelperDashboardWrapper = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const handleNavigate = (page: string) => {
     switch (page) {
+      case 'landing':
+        navigate('/');
+        break;
       case 'marketplace':
         navigate('/marketplace');
         break;
@@ -122,11 +149,21 @@ const HelperDashboardWrapper = () => {
       case 'jamii-shop':
         navigate('/shop');
         break;
+      case 'customer-dashboard':
+        navigate('/dashboard/customer');
+        break;
+      case 'helper-dashboard':
+        navigate('/dashboard/helper');
+        break;
       default:
         console.warn(`Unknown navigation: ${page}`);
     }
   };
-  return <HelperDashboard onNavigate={handleNavigate} />;
+  return (
+    <Layout onNavigate={handleNavigate} currentPage={location.pathname}>
+      <HelperDashboard onNavigate={handleNavigate} />
+    </Layout>
+  );
 };
 
 const AuthPageWrapper = () => {
@@ -151,19 +188,104 @@ const AuthPageWrapper = () => {
 
 const ProfileSettingsPageWrapper = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const handleNavigate = (page: string) => {
     switch (page) {
+      case 'landing':
+        navigate('/');
+        break;
       case 'helper-dashboard':
         navigate('/dashboard/helper');
         break;
       case 'customer-dashboard':
         navigate('/dashboard/customer');
         break;
+      case 'marketplace':
+        navigate('/marketplace');
+        break;
+      case 'messages':
+        navigate('/messages');
+        break;
+      case 'payments':
+        navigate('/payments');
+        break;
       default:
         console.warn(`Unknown navigation: ${page}`);
     }
   };
-  return <ProfileSettingsPage onNavigate={handleNavigate} />;
+  return (
+    <Layout onNavigate={handleNavigate} currentPage={location.pathname}>
+      <ProfileSettingsPage onNavigate={handleNavigate} />
+    </Layout>
+  );
+};
+
+const MessagesPageWrapper = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const handleNavigate = (page: string) => {
+    switch (page) {
+      case 'landing':
+        navigate('/');
+        break;
+      case 'marketplace':
+        navigate('/marketplace');
+        break;
+      case 'customer-dashboard':
+        navigate('/dashboard/customer');
+        break;
+      case 'helper-dashboard':
+        navigate('/dashboard/helper');
+        break;
+      case 'settings':
+        navigate('/settings');
+        break;
+      case 'payments':
+        navigate('/payments');
+        break;
+      default:
+        console.warn(`Unknown navigation: ${page}`);
+    }
+  };
+  return (
+    <Layout onNavigate={handleNavigate} currentPage={location.pathname}>
+      <MessagesPage />
+    </Layout>
+  );
+};
+
+const PaymentsPageWrapper = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const handleNavigate = (page: string) => {
+    switch (page) {
+      case 'landing':
+        navigate('/');
+        break;
+      case 'marketplace':
+        navigate('/marketplace');
+        break;
+      case 'customer-dashboard':
+        navigate('/dashboard/customer');
+        break;
+      case 'helper-dashboard':
+        navigate('/dashboard/helper');
+        break;
+      case 'messages':
+        navigate('/messages');
+        break;
+      case 'settings':
+        navigate('/settings');
+        break;
+      default:
+        console.warn(`Unknown navigation: ${page}`);
+    }
+  };
+  return (
+    <Layout onNavigate={handleNavigate} currentPage={location.pathname}>
+      <PaymentsPage onNavigate={handleNavigate} />
+    </Layout>
+  );
 };
 
 const App = () => (
@@ -175,9 +297,9 @@ const App = () => (
         <Route path="/marketplace" element={<MarketplacePageWrapper />} />
         <Route path="/dashboard/customer" element={<CustomerDashboardWrapper />} />
         <Route path="/dashboard/helper" element={<HelperDashboardWrapper />} />
-        <Route path="/messages" element={<MessagesPage />} />
+        <Route path="/messages" element={<MessagesPageWrapper />} />
         <Route path="/settings" element={<ProfileSettingsPageWrapper />} />
-        <Route path="/payments" element={<PaymentsPage />} />
+        <Route path="/payments" element={<PaymentsPageWrapper />} />
         <Route path="/shop" element={<JamiiShopPage onNavigate={(page) => console.log('Navigate:', page)} />} />
         <Route path="/profile/:id?" element={<PublicProfilePage onNavigate={(page) => console.log('Navigate:', page)} />} />
         <Route path="*" element={<div className="min-h-screen flex items-center justify-center"><h1 className="text-2xl">Page Not Found</h1></div>} />
